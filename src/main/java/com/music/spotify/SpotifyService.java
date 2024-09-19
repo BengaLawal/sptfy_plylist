@@ -20,8 +20,9 @@ public class SpotifyService {
                 .build();
     }
 
-    public CompletableFuture<URI> getAuthorizationUriAsync() {
+    public CompletableFuture<URI> getAuthorizationUriAsync(String state) {
         return spotifyApi.authorizationCodeUri()
+                .state(state)
                 .scope("user-read-email, user-read-private, playlist-read-private, playlist-read-collaborative")
                 .show_dialog(true)
                 .build()

@@ -16,7 +16,7 @@ public class Main {
         URI redirectUri = SpotifyHttpManager.makeUri("http://localhost:5000/login/spotify/callback");
 
         // initialise javalin
-        Javalin app = Javalin.create(config -> config.staticFiles.add("/templates", Location.CLASSPATH)).start(5000);
+        Javalin app = Javalin.create(config -> config.staticFiles.add("/public", Location.CLASSPATH)).start(5000);
 
         // Create Spotify service
         SpotifyService spotifyService = new SpotifyService(clientId, clientSecret, redirectUri);
