@@ -11,6 +11,7 @@ public class SpotifyService {
     private final SpotifyApi spotifyApi;
     private String authorizationCode;
     private String refreshToken;
+    private long accessTokenExpirationTime;
 
     public SpotifyService(String clientId, String clientSecret, URI redirectUri) {
         spotifyApi = new SpotifyApi.Builder()
@@ -36,6 +37,10 @@ public class SpotifyService {
         authorizationCodeRequest.executeAsync().thenAccept(credentials -> {
             spotifyApi.setAccessToken(credentials.getAccessToken());
             spotifyApi.setRefreshToken(credentials.getRefreshToken());
+
+            // Calculate and save the token expiration time
+            accessTokenExpirationTime = System.currentTimeMillis() + (credentials.getExpiresIn() * 1000L);
+
             System.out.println("Access Token: " + credentials.getAccessToken());
             System.out.println("Refresh Token: " + credentials.getRefreshToken());
             System.out.println("Expires in: " + credentials.getExpiresIn());
@@ -57,4 +62,20 @@ public class SpotifyService {
             return null;
         });
     }
+
+    // Check if user is logged in by verifying if the access token exists and is valid
+    public boolean isLoggedIn() {
+        String accessToken = spotifyApi.getAccessToken();
+        if (accessToken == null || accessToken.isEmpty()) {
+            return false;
+        }
+        // Check if the token has expired
+        long currentTime = System.currentTimeMillis();
+        if (currentTime >= accessTokenExpirationTime) {
+            System.out.println("Access token has expired.");
+            return false;
+        }
+        return true;
+    }
+
 }

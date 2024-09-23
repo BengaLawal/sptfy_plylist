@@ -3,6 +3,7 @@ package com.music.spotify;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 
+import java.util.Map;
 import java.util.UUID;
 
 public class SpotifyController {
@@ -17,6 +18,7 @@ public class SpotifyController {
     public void registerRoutes(Javalin app) {
         app.get("/login/spotify", this::login);
         app.get("/login/spotify/callback", this::callback);
+        app.get("/spotify/auth/status", this::isLoggedIn);
     }
 
     // Redirect to Spotify login
@@ -58,5 +60,11 @@ public class SpotifyController {
         } else {
             ctx.result("Authentication failed.");
         }
+    }
+
+    // Expose the login status
+    public void isLoggedIn(Context ctx) {
+        boolean loggedIn = spotifyService.isLoggedIn();
+        ctx.json(Map.of("spotifyLoggedIn", loggedIn));
     }
 }

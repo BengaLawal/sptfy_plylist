@@ -6,11 +6,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/style.css">
     <title>Music Transfer Login</title>
+
+    <script>
+        // On page load, check with the server if the user is logged in
+        window.onload = async function() {
+            try {
+                const response = await fetch('/spotify/auth/status');  // request login status
+                const data = await response.json();
+
+                if (data.spotifyLoggedIn) {
+                    document.getElementById('spotifyButton').setAttribute("disabled", "disabled");
+                    document.getElementById('spotifyButton').innerText = 'Spotify Login Successful';
+                } else{
+                    document.getElementById('spotifyButton').removeAttribute("disabled");
+                    document.getElementById('spotifyButton').innerText = 'Login with Spotify';
+                }
+            } catch (error) {
+                console.error('Error checking login status:', error);
+            }
+        }
+    </script>
 </head>
 <body>
 <div class="button-container">
-    <button type="button" onclick="window.location.href='/login/spotify'">Login with Spotify</button>
-    <button type="button" onclick="window.location.href='/login/yt'">Login with YouTube</button>
+    <button id="spotifyButton" type="button" onclick="window.location.href='/login/spotify'">Login with Spotify</button>
+    <button id="ytButton" type="button" onclick="window.location.href='/login/yt'">Login with YouTube</button>
 </div>
 </body>
 </html>
