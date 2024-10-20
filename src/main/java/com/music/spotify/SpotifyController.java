@@ -27,7 +27,7 @@ public class SpotifyController {
     }
 
     public void playlists(Context ctx) {
-        ctx.future(() -> spotifyService.getListOfUsersPlaylistsAsync()
+        ctx.future(() -> spotifyService.fetchUserPlaylistsWithPagination()
                 .thenApply(playlists -> {
                     if (playlists == null || playlists.isEmpty()) {
                         logger.warn("No playlists found for the user.");

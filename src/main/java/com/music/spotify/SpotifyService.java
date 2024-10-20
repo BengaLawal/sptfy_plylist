@@ -14,7 +14,6 @@ import se.michaelthelin.spotify.requests.data.playlists.GetListOfUsersPlaylistsR
 import se.michaelthelin.spotify.requests.data.users_profile.GetCurrentUsersProfileRequest;
 
 import java.net.URI;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -71,14 +70,25 @@ public class SpotifyService {
         logger.info("Refreshing Spotify access token");
         AuthorizationCodeRefreshRequest refreshRequest = spotifyApi.authorizationCodeRefresh().build();
 
-        return refreshRequest.executeAsync().thenAccept(credentials -> {
-            spotifyApi.setAccessToken(credentials.getAccessToken());
-            logger.info("New Access Token: {}", credentials.getAccessToken());
-            logger.info("Token expires in: {} seconds", credentials.getExpiresIn());
-        }).exceptionally(e -> {
-            logger.error("Error refreshing access token: {}", e.getMessage(), e);
-            return null;
-        });
+        return refreshRequest.executeAsync()
+                .thenAccept(credentials -> {
+                    spotifyApi.setAccessToken(credentials.getAccessToken());
+
+                    // Calculate and save the new expiration time
+                    accessTokenExpirationTime = System.currentTimeMillis() + (credentials.getExpiresIn() * 1000L);
+
+                    // Optionally update refresh token if provided
+                    if (credentials.getRefreshToken() != null) {
+                        spotifyApi.setRefreshToken(credentials.getRefreshToken());
+                        logger.info("Refresh Token has been updated.");
+                    }
+
+                    logger.info("New Access Token: {}", credentials.getAccessToken());
+                    logger.info("Token expires in: {} seconds", credentials.getExpiresIn());
+                }).exceptionally(e -> {
+                    logger.error("Error refreshing access token: {}", e.getMessage(), e);
+                    throw new RuntimeException("Failed to refresh access token", e);
+                });
     }
 
     // Check if user is logged in by verifying if the access token exists and is valid
@@ -100,7 +110,20 @@ public class SpotifyService {
 
     // method to get the current user ID
     public CompletableFuture<String> getUserIdAsync() {
+        if (!isLoggedIn()) {
+            logger.info("Access token is expired or user is not logged in. Refreshing access token...");
+            return refreshAccessTokenAsync()
+                    .thenCompose(unused -> {
+                        // After refreshing, retry getting the user ID
+                        logger.info("Retrying to fetch current user's Spotify ID after refreshing the token");
+                        return requestUserId();
+                    });
+        }
         logger.info("Fetching current user's Spotify ID");
+        return requestUserId();
+    }
+
+    private CompletableFuture<String> requestUserId() {
         GetCurrentUsersProfileRequest request = spotifyApi.getCurrentUsersProfile().build();
         return request.executeAsync()
                 .thenApply(User::getId)
@@ -110,16 +133,30 @@ public class SpotifyService {
                 });
     }
 
-    // get list of user playlist - loop through pages
-    public CompletionStage<List<String>> getListOfUsersPlaylistsAsync() {
+    // Get user's playlists by fetching all pages, with automatic refresh if token is expired
+    public CompletionStage<List<String>> fetchUserPlaylistsWithPagination() {
+        if (!isLoggedIn()) {
+            logger.info("Access token is expired or user is not logged in. Refreshing access token...");
+            return refreshAccessTokenAsync()
+                    .thenCompose(unused -> {
+                        // After refreshing, retry fetching playlists
+                        logger.info("Retrying to fetch playlists after refreshing the token");
+                        return retrieveAllUserPlaylists();
+                    });
+        }
         logger.info("Fetching user's playlists");
+        return retrieveAllUserPlaylists();
+    }
+
+    // Retrieves all playlists for the current user by fetching all pages.
+    private CompletionStage<List<String>> retrieveAllUserPlaylists() {
         return getUserIdAsync()
                 .thenCompose(userId -> {
                     if (userId == null) {
                         logger.error("User ID could not be fetched.");
                         return CompletableFuture.completedFuture(List.of());
                     }
-                    return fetchAllPlaylists(userId, 0, List.of());
+                    return retrievePlaylistsWithPagination(userId, 0, List.of());
                 })
                 .exceptionally(e -> {
                     logger.error("Error fetching playlists: {}", e.getMessage(), e);
@@ -128,7 +165,7 @@ public class SpotifyService {
     }
 
     // Helper method to fetch all playlists with pagination
-    private CompletionStage<List<String>> fetchAllPlaylists(String userId, int offset, List<String> accumulatedPlaylists) {
+    private CompletionStage<List<String>> retrievePlaylistsWithPagination(String userId, int offset, List<String> accumulatedPlaylists) {
         GetListOfUsersPlaylistsRequest request = spotifyApi.getListOfUsersPlaylists(userId)
                 .limit(50)
                 .offset(offset)
@@ -145,7 +182,7 @@ public class SpotifyService {
 
                     // If there are more playlists to fetch, continue with the next page
                     if (playlistPaging.getTotal() > offset + playlistPaging.getItems().length) {
-                        return fetchAllPlaylists(userId, offset + 50, updatedAccumulatedPlaylists);
+                        return retrievePlaylistsWithPagination(userId, offset + 50, updatedAccumulatedPlaylists);
                     } else {
                         // No more playlists to fetch, return the accumulated list
                         return CompletableFuture.completedFuture(updatedAccumulatedPlaylists);
