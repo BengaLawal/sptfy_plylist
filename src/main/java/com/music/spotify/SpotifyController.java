@@ -2,12 +2,16 @@ package com.music.spotify;
 
 import io.javalin.Javalin;
 import io.javalin.http.Context;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 public class SpotifyController {
-
+    private static final Logger logger = LoggerFactory.getLogger(SpotifyController.class);
     private final SpotifyService spotifyService;
 
     public SpotifyController(SpotifyService spotifyService) {
@@ -19,6 +23,27 @@ public class SpotifyController {
         app.get("/login/spotify", this::login);
         app.get("/login/spotify/callback", this::callback);
         app.get("/spotify/auth/status", this::isLoggedIn);
+        app.get("/playlists", this::playlists);
+    }
+
+    public void playlists(Context ctx) {
+        ctx.future(() -> spotifyService.getListOfUsersPlaylistsAsync()
+                .thenApply(playlists -> {
+                    if (playlists == null || playlists.isEmpty()) {
+                        logger.warn("No playlists found for the user.");
+                        return Map.of("playlists", List.of()); // Return an empty list if no playlists are found
+                    } else {
+                        logger.info("Retrieved playlists: {}", playlists);
+                        return Map.of("playlists", playlists);
+                    }
+                })
+                .exceptionally(ex -> {
+                    logger.error("Error retrieving playlists: {}", ex.getMessage(), ex);
+                    ctx.status(500);
+                    return Map.of("error", Collections.singletonList("Error retrieving playlists: " + ex.getMessage()));
+                })
+                .thenAccept(ctx::json).toCompletableFuture()
+        );
     }
 
     // Redirect to Spotify login
@@ -27,11 +52,12 @@ public class SpotifyController {
         String state = UUID.randomUUID().toString();
         ctx.res().addHeader("Set-Cookie", "spotify_auth_state=" + state + "; Max-Age=600; SameSite=Lax; HttpOnly; Secure");  // Store `state` in a cookie for 600 seconds
 
-        System.out.println(state);
         spotifyService.getAuthorizationUriAsync(state)
                 .thenAccept(uri -> {
+                    logger.info("Redirecting to Spotify for authentication");
                     ctx.redirect(uri.toString());  // Redirect user to Spotify for authentication
                 }).exceptionally(ex -> {
+                    logger.error("Error generating Spotify login URL: " + ex.getMessage(), ex);
                     ctx.result("Error generating Spotify login URL: " + ex.getMessage());
                     return null;
                 });
@@ -43,9 +69,9 @@ public class SpotifyController {
         String storedState = ctx.cookie("spotify_auth_state");  // Get stored `state` from cookie
         String code = ctx.queryParam("code");  // read returned code from spotify in url param
 
-        System.out.println(state);
         // Check if `state` matches the stored value
         if (state == null || !state.equals(storedState)) {
+            logger.warn("Invalid state parameter! Possible CSRF attack.");
             ctx.result("Invalid state parameter! Possible CSRF attack.");
             return;
         }
@@ -55,16 +81,24 @@ public class SpotifyController {
 
         if (code != null) {
             spotifyService.exchangeAuthorizationCodeAsync(code);
+            logger.info("Successfully authenticated with Spotify");
+
+            ctx.res().setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+            ctx.res().setHeader("Pragma", "no-cache");
+            ctx.res().setHeader("Expires", "0");
+
             ctx.result("Successfully authenticated with Spotify!");
             ctx.redirect("/");
         } else {
-            ctx.result("Authentication failed.");
+            logger.error("Authentication failed.");
+            ctx.redirect("/");
         }
     }
 
     // Expose the login status
     public void isLoggedIn(Context ctx) {
         boolean loggedIn = spotifyService.isLoggedIn();
+        logger.info("Spotify login status: {}", loggedIn);
         ctx.json(Map.of("spotifyLoggedIn", loggedIn));
     }
 }
