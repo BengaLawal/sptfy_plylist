@@ -108,22 +108,26 @@ public class SpotifyService {
         return true;
     }
 
-    // method to get the current user ID
-    public CompletableFuture<String> getUserIdAsync() {
-        if (!isLoggedIn()) {
+    // ensure access token is active; otherwise, refresh access token
+    private CompletionStage<Void> ensureAccessTokenIsValid() {
+        if (isLoggedIn()) {
+            return CompletableFuture.completedFuture(null);
+        } else {
             logger.info("Access token is expired or user is not logged in. Refreshing access token...");
-            return refreshAccessTokenAsync()
-                    .thenCompose(unused -> {
-                        // After refreshing, retry getting the user ID
-                        logger.info("Retrying to fetch current user's Spotify ID after refreshing the token");
-                        return requestUserId();
-                    });
+            return refreshAccessTokenAsync();
         }
-        logger.info("Fetching current user's Spotify ID");
-        return requestUserId();
     }
 
+    // method to get the current user ID
+    public CompletableFuture<String> getUserIdAsync() {
+        return ensureAccessTokenIsValid()
+                .thenCompose(unused -> requestUserId())
+                .toCompletableFuture();
+    }
+
+    // Helper function to get user id
     private CompletableFuture<String> requestUserId() {
+        logger.info("Fetching current user's Spotify ID");
         GetCurrentUsersProfileRequest request = spotifyApi.getCurrentUsersProfile().build();
         return request.executeAsync()
                 .thenApply(User::getId)
@@ -135,17 +139,8 @@ public class SpotifyService {
 
     // Get user's playlists by fetching all pages, with automatic refresh if token is expired
     public CompletionStage<List<String>> fetchUserPlaylistsWithPagination() {
-        if (!isLoggedIn()) {
-            logger.info("Access token is expired or user is not logged in. Refreshing access token...");
-            return refreshAccessTokenAsync()
-                    .thenCompose(unused -> {
-                        // After refreshing, retry fetching playlists
-                        logger.info("Retrying to fetch playlists after refreshing the token");
-                        return retrieveAllUserPlaylists();
-                    });
-        }
-        logger.info("Fetching user's playlists");
-        return retrieveAllUserPlaylists();
+        return ensureAccessTokenIsValid()
+                .thenCompose(unused -> retrieveAllUserPlaylists());
     }
 
     // Retrieves all playlists for the current user by fetching all pages.
@@ -190,18 +185,20 @@ public class SpotifyService {
                 });
     }
 
-    // method to get liked songs
+    // Method to get liked songs, ensures token is valid before proceeding
     public CompletableFuture<Paging<SavedTrack>> getLikedSongs() {
-        logger.info("Fetching user's liked songs");
-        GetUsersSavedTracksRequest request = spotifyApi.getUsersSavedTracks()
-          .limit(50)
-          .offset(0)
-//          .market(CountryCode.SE)
-                .build();
-        return request.executeAsync().exceptionally(e -> {
-            logger.error("Error fetching liked songs: {}", e.getMessage(), e);
-            return null;
-        });
+        return ensureAccessTokenIsValid()
+                .thenCompose(unused -> {
+                    logger.info("Fetching user's liked songs");
+                    GetUsersSavedTracksRequest request = spotifyApi.getUsersSavedTracks()
+                            .limit(50)
+                            .offset(0)
+                            .build();
+                    return request.executeAsync()
+                            .exceptionally(e -> {
+                                logger.error("Error fetching liked songs: {}", e.getMessage(), e);
+                                return null;
+                            });
+                }).toCompletableFuture();
     }
-
 }
