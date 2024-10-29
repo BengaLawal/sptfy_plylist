@@ -24,6 +24,20 @@ public class SpotifyController {
         app.get("/login/spotify/callback", this::callback);
         app.get("/spotify/auth/status", this::isLoggedIn);
         app.get("/playlists", this::playlists);
+        app.get("/spotify/refresh-token", this::refreshAccessToken);
+    }
+
+    private void refreshAccessToken(Context context) {
+        spotifyService.refreshAccessTokenAsync()
+                .thenAccept(unused -> {
+                    logger.info("Refreshed access token successfully");
+                    context.status(200);
+                })
+                .exceptionally(ex -> {
+                    logger.error("Failed to refresh access token", ex);
+                    context.status(401); // Unauthorized, token refresh failed
+                    return null;
+                });
     }
 
     public void playlists(Context ctx) {

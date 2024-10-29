@@ -5,18 +5,28 @@ window.onload = async function() {
         const data = await response.json();
 
         if (data.spotifyLoggedIn) {
-            document.getElementById('spotifyButton').setAttribute("disabled", "disabled");
-            document.getElementById('spotifyButton').innerText = 'Spotify Login Successful';
-
-            // Fetch and display playlists
-            await fetchPlaylists();
+            await handleSpotifyLoginSuccessful()
         } else{
-            document.getElementById('spotifyButton').removeAttribute("disabled");
-            document.getElementById('spotifyButton').innerText = 'Login with Spotify';
+            handleSpotifyLoginRequired()
         }
     } catch (error) {
         console.error('Error checking login status:', error);
     }
+}
+
+// Handle successful Spotify login
+async function handleSpotifyLoginSuccessful(){
+    document.getElementById('spotifyButton').setAttribute("disabled", "disabled");
+    document.getElementById('spotifyButton').innerText = 'Spotify Login Successful';
+
+    // Fetch and display playlists
+    await fetchPlaylists();
+}
+
+// Handle Spotify login requirement
+function handleSpotifyLoginRequired() {
+    document.getElementById('spotifyButton').removeAttribute("disabled");
+    document.getElementById('spotifyButton').innerText = 'Login with Spotify';
 }
 
 // Fetch playlists from the server
@@ -25,6 +35,13 @@ async function fetchPlaylists() {
     try {
         const response = await fetch('/playlists');
         console.log("Response status:", response.status);
+
+        if (response.status === 401) {
+            // If the response is 401 Unauthorized, it means the token might have expired
+            console.log("Token expired. Refreshing token and retrying...");
+            await refreshAccessTokenAndRetry(fetchPlaylists);
+            return;
+        }
 
         const data = await response.json();
         console.log("Parsed data:", data);
@@ -53,5 +70,25 @@ async function fetchPlaylists() {
         playlistSection.style.display = 'block';
     } catch (error) {
         console.error('Error fetching playlists:', error);
+    }
+}
+
+// Helper function to refresh the access token and retry an action
+async function refreshAccessTokenAndRetry(action) {
+    try {
+        const response = await fetch('/spotify/refresh-token', {
+            method: 'POST',
+        });
+
+        if (response.ok) {
+            console.log("Access token successfully refreshed.");
+            await action(); // Retry the original action
+        } else {
+            console.error("Error refreshing access token. User may need to reauthenticate.");
+            handleSpotifyLoginRequired();
+        }
+    } catch (error) {
+        console.error('Error refreshing access token:', error);
+        handleSpotifyLoginRequired();
     }
 }

@@ -101,8 +101,15 @@ public class SpotifyService {
         // Check if the token has expired
         long currentTime = System.currentTimeMillis();
         if (currentTime >= accessTokenExpirationTime) {
-            logger.warn("Access token has expired.");
-            return false;
+            logger.warn("Access token has expired. Attempting to refresh...");
+            try {
+                // Refresh the token
+                refreshAccessTokenAsync();
+                logger.info("Access token refreshed successfully.");
+            } catch (Exception e) {
+                logger.error("Failed to refresh access token: {}", e.getMessage(), e);
+                return false;
+            }
         }
         logger.info("User is logged in with a valid access token.");
         return true;
