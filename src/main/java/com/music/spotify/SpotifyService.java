@@ -15,6 +15,7 @@ import se.michaelthelin.spotify.requests.data.users_profile.GetCurrentUsersProfi
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
@@ -145,13 +146,13 @@ public class SpotifyService {
     }
 
     // Get user's playlists by fetching all pages, with automatic refresh if token is expired
-    public CompletionStage<List<String>> fetchUserPlaylistsWithPagination() {
+    public CompletionStage<List<Map<String, String>>> fetchUserPlaylists() {
         return ensureAccessTokenIsValid()
                 .thenCompose(unused -> retrieveAllUserPlaylists());
     }
 
     // Retrieves all playlists for the current user by fetching all pages.
-    private CompletionStage<List<String>> retrieveAllUserPlaylists() {
+    private CompletionStage<List<Map<String, String>>> retrieveAllUserPlaylists() {
         return getUserIdAsync()
                 .thenCompose(userId -> {
                     if (userId == null) {
@@ -167,7 +168,7 @@ public class SpotifyService {
     }
 
     // Helper method to fetch all playlists with pagination
-    private CompletionStage<List<String>> retrievePlaylistsWithPagination(String userId, int offset, List<String> accumulatedPlaylists) {
+    private CompletionStage<List<Map<String, String>>> retrievePlaylistsWithPagination(String userId, int offset, List<Map<String, String>> accumulatedPlaylists) {
         GetListOfUsersPlaylistsRequest request = spotifyApi.getListOfUsersPlaylists(userId)
                 .limit(50)
                 .offset(offset)
@@ -175,11 +176,14 @@ public class SpotifyService {
 
         return request.executeAsync()
                 .thenCompose(playlistPaging -> {
-                    List<String> currentPlaylists = Stream.of(playlistPaging.getItems())
-                            .map(PlaylistSimplified::getName)
+                    List<Map<String, String>> currentPlaylists = Stream.of(playlistPaging.getItems())
+                            .map(playlist -> Map.of(
+                                            "id", playlist.getId(),
+                                            "name", playlist.getName()
+                            ))
                             .toList();
 
-                    List<String> updatedAccumulatedPlaylists = Stream.concat(accumulatedPlaylists.stream(), currentPlaylists.stream())
+                    List<Map<String, String>> updatedAccumulatedPlaylists = Stream.concat(accumulatedPlaylists.stream(), currentPlaylists.stream())
                             .collect(Collectors.toList());
 
                     // If there are more playlists to fetch, continue with the next page

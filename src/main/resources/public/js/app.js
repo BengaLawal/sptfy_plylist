@@ -61,7 +61,18 @@ async function fetchPlaylists() {
             // Display playlists in the list
             data.playlists.forEach(playlist => {
                 const li = document.createElement('li');
-                li.innerText = playlist;
+                li.innerText = playlist.name;
+                li.dataset.playlistId = playlist.id;  // Store the playlist ID in a data attribute
+                li.classList.add('playlist-item');
+
+                // Add click event listener to display the Spotify embed player
+                li.addEventListener('click', () => {
+                    // Remove existing iframes from all other playlist items
+                    document.querySelectorAll('.playlist-embed').forEach(iframe => iframe.remove());
+
+                    displaySpotifyEmbed(playlist.id, li);
+                });
+
                 playlistList.appendChild(li);
             });
         }
@@ -71,6 +82,25 @@ async function fetchPlaylists() {
     } catch (error) {
         console.error('Error fetching playlists:', error);
     }
+}
+
+// Function to display the Spotify embed player for a clicked playlist
+function displaySpotifyEmbed(playlistId, parentElement) {
+    console.log("Displaying embed for playlist ID:", playlistId);
+
+    // Create a new iframe with the embed code
+    const iframe = document.createElement('iframe');
+    iframe.classList.add('playlist-embed');
+    iframe.style.borderRadius = "12px";
+    iframe.src = `https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator`;
+    iframe.width = "100%";
+    iframe.height = "352";
+    iframe.frameBorder = "0";
+    iframe.allow = "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
+    iframe.loading = "lazy";
+
+    // Append the iframe directly under the clicked <li> element
+    parentElement.appendChild(iframe);
 }
 
 // Helper function to refresh the access token and retry an action
