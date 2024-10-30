@@ -14,10 +14,26 @@
     <button id="ytButton" type="button" onclick="window.location.href='/login/yt'">Login with YouTube</button>
 </div>
 
-<!-- Playlist section -->
-<div id="playlistSection" style="display:none;">
-    <h3>Your Playlists</h3>
-    <ul id="playlistList"></ul>
+<!-- Main Content Section -->
+<div class="main-container" style="display: flex; gap: 20px; margin-top: 20px;">
+    <!-- Playlist Section -->
+    <div id="playlistSection" style="display:none; width: 40%;">
+        <h3>Your Playlists</h3>
+        <!-- Select All Option -->
+        <div>
+            <input type="checkbox" id="selectAllCheckbox">
+            <label for="selectAllCheckbox">Select All</label>
+        </div>
+        <ul id="playlistList"></ul>
+    </div>
+
+    <!-- Spotify Embed Section -->
+    <div id="embedContainer" style="display: none; width: 60%;">
+        <h3>Playlist Preview</h3>
+        <div id="spotifyEmbed"></div>
+        <!-- Submit Button -->
+        <button id="transferButton" type="button" style="display:none; margin-top: 20px;">Transfer Playlists</button>
+    </div>
 </div>
 
 </body>

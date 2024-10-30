@@ -48,6 +48,7 @@ async function fetchPlaylists() {
 
         const playlistSection = document.getElementById('playlistSection');
         const playlistList = document.getElementById('playlistList');
+        const submitButton = document.getElementById('transferButton');
 
         // Clear any previous playlist items
         playlistList.innerHTML = '';
@@ -57,36 +58,54 @@ async function fetchPlaylists() {
             const message = document.createElement('p');
             message.innerText = 'No playlists found.';
             playlistList.appendChild(message);
+            submitButton.style.display = 'none';
         } else {
             // Display playlists in the list
             data.playlists.forEach(playlist => {
                 const li = document.createElement('li');
-                li.innerText = playlist.name;
-                li.dataset.playlistId = playlist.id;  // Store the playlist ID in a data attribute
                 li.classList.add('playlist-item');
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.classList.add('playlist-checkbox')
+                checkbox.dataset.playlistId = playlist.id
+
+                const label = document.createElement('label');
+                label.innerText = playlist.name;
+
+                li.appendChild(checkbox);
+                li.appendChild(label);
 
                 // Add click event listener to display the Spotify embed player
                 li.addEventListener('click', () => {
-                    // Remove existing iframes from all other playlist items
-                    document.querySelectorAll('.playlist-embed').forEach(iframe => iframe.remove());
-
-                    displaySpotifyEmbed(playlist.id, li);
+                    displaySpotifyEmbed(playlist.id);
                 });
 
                 playlistList.appendChild(li);
             });
+            // Show the submit button
+            submitButton.style.display = 'block';
         }
-
         // Show the playlist section
         playlistSection.style.display = 'block';
+
+        // Add event listeners for "Select All" and "Submit" buttons
+        setupSelectAllCheckbox();
+        setupTransferButton();
     } catch (error) {
         console.error('Error fetching playlists:', error);
     }
 }
 
 // Function to display the Spotify embed player for a clicked playlist
-function displaySpotifyEmbed(playlistId, parentElement) {
+function displaySpotifyEmbed(playlistId) {
     console.log("Displaying embed for playlist ID:", playlistId);
+
+    const embedContainer = document.getElementById('embedContainer');
+    const spotifyEmbed = document.getElementById('spotifyEmbed');
+
+    // Clear any existing embed iframe
+    spotifyEmbed.innerHTML = '';
 
     // Create a new iframe with the embed code
     const iframe = document.createElement('iframe');
@@ -100,8 +119,46 @@ function displaySpotifyEmbed(playlistId, parentElement) {
     iframe.loading = "lazy";
 
     // Append the iframe directly under the clicked <li> element
-    parentElement.appendChild(iframe);
+    spotifyEmbed.appendChild(iframe);
+
+    // Show the embed container
+    embedContainer.style.display = 'block';
 }
+
+// Select All checkbox functionality
+function setupSelectAllCheckbox(){
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const checkboxes = document.querySelectorAll('.playlist-checkbox');
+
+    selectAllCheckbox.addEventListener('change', () =>{
+        const isChecked = selectAllCheckbox.checked;
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = isChecked;
+        });
+    });
+}
+
+// transfer button
+function setupTransferButton() {
+    const submitButton = document.getElementById('transferButton');
+
+    submitButton.addEventListener('click', () => {
+        const selectedPlaylists = [];
+        document.querySelectorAll('.playlist-checkbox:checked').forEach(checkbox => {
+            selectedPlaylists.push(checkbox.dataset.playlistId);
+        });
+
+        if (selectedPlaylists.length === 0) {
+            alert('Please select at least one playlist to submit.');
+            return;
+        }
+
+        console.log("Selected Playlists:", selectedPlaylists);
+
+        //TODO: send the selected playlists and it's info to ytMicroService here
+    });
+}
+
 
 // Helper function to refresh the access token and retry an action
 async function refreshAccessTokenAndRetry(action) {
