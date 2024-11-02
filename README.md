@@ -21,8 +21,6 @@ This project is a Java-based service that integrates with the Spotify API, provi
 3. **Transfer Playlists**
    - Users can select playlists and transfer them to another service (e.g., YouTube Music). The tracks are fetched for each playlist and sent to a microservice handling YouTube integration.
 
-## Running the Project
-
 ### Prerequisites
 
 - **Java 11 or higher**
@@ -41,18 +39,5 @@ This project is a Java-based service that integrates with the Spotify API, provi
 - Users can log in with Spotify, view playlists, and select them for transfer.
 - An embedded Spotify player iframe is dynamically added when a playlist is clicked, providing a preview of the selected playlist.
 
-## Improvements and Future Enhancements
 
-1. **Token Refresh Handling**: The backend ensures the Spotify access token is refreshed automatically when expired, without requiring user re-authentication.
-
-2. **UI/UX Improvements**: Improve the UI for a better experience, including styling enhancements and better visual feedback for playlist selection.
-
-## License
-This project is open-source. Feel free to contribute or modify.
-
-## Contributing
-Pull requests are welcome. Please make sure to update tests as appropriate if you add new functionality.
-
-## Contact
-For issues or support, please contact [gbengalawal99@gmail.com].
 
